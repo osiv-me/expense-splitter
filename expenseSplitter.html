@@ -1,0 +1,142 @@
+<!-- 
+  Bootstrap docs: https://getbootstrap.com/docs
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Expense Splitter</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+</head>
+<body class="p-4">
+  <div class="container">
+    <h2 class="mb-4">Expense Splitter</h2>
+    <form id="expense-form">
+      <div class="mb-3">
+        <label for="payer" class="form-label">Who Paid?</label>
+        <select class="form-select" id="payer">
+          <option>Sara</option>
+          <option>Erik</option>
+          <option>Emma</option>
+          <option>Ida</option>
+          <option>Axel</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="amount" class="form-label">Amount (SEK)</label>
+        <input type="number" class="form-control" id="amount" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Add Expense</button>
+    </form>
+
+    <hr>
+
+    <h4>Expenses</h4>
+    <ul id="expense-list" class="list-group mb-3"></ul>
+
+    <button class="btn btn-success" onclick="calculateSplit()">Calculate Split</button>
+
+    <hr>
+    <h4>Who Owes What</h4>
+    <ul id="result-list" class="list-group"></ul>
+  </div>
+
+  <script>
+    window._expenseSplitter = (() => {
+      const peopleList = ['Sara', 'Erik', 'Emma', 'Ida', 'Axel'];
+      const expenses = [];
+
+      function addExpense(payer, amount) {
+        expenses.push({ payer, amount });
+        displayExpenses();
+      }
+
+      function removeExpense(index) {
+        expenses.splice(index, 1);
+        displayExpenses();
+      }
+
+      function displayExpenses() {
+        const list = document.getElementById('expense-list');
+        list.innerHTML = '';
+        expenses.forEach((e, i) => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center';
+          li.innerHTML = `
+            <span>${e.payer} paid ${e.amount.toFixed(2)} SEK</span>
+            <button class="btn btn-sm btn-danger" onclick="window._expenseSplitter.removeExpense(${i})">Remove</button>
+          `;
+          list.appendChild(li);
+        });
+      }
+
+      function calculateSplit() {
+        const totals = {};
+        peopleList.forEach(p => totals[p] = 0);
+        expenses.forEach(e => {
+          totals[e.payer] += e.amount;
+        });
+
+        const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
+        const share = totalSpent / peopleList.length;
+
+        const balances = {};
+        peopleList.forEach(p => {
+          balances[p] = totals[p] - share;
+        });
+
+        const creditors = [], debtors = [];
+        for (const person of peopleList) {
+          if (balances[person] > 0) {
+            creditors.push({ name: person, amount: balances[person] });
+          } else if (balances[person] < 0) {
+            debtors.push({ name: person, amount: -balances[person] });
+          }
+        }
+
+        const resultList = document.getElementById('result-list');
+        resultList.innerHTML = '';
+
+        for (const debtor of debtors) {
+          for (const creditor of creditors) {
+            if (debtor.amount === 0) break;
+            if (creditor.amount === 0) continue;
+
+            const payment = Math.min(debtor.amount, creditor.amount);
+            debtor.amount -= payment;
+            creditor.amount -= payment;
+
+            const li = document.createElement('li');
+            li.className = 'list-group-item';
+            li.innerText = `${debtor.name} owes ${creditor.name} ${payment.toFixed(2)} SEK`;
+            resultList.appendChild(li);
+          }
+        }
+      }
+
+      return {
+        addExpense,
+        removeExpense,
+        calculateSplit,
+        get people() { return [...peopleList]; }
+      };
+    })();
+
+    document.getElementById('expense-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const payer = document.getElementById('payer').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      if (!amount || amount < 0) return;
+      window._expenseSplitter.addExpense(payer, amount);
+      this.reset();
+    });
+
+    function calculateSplit() {
+      window._expenseSplitter.calculateSplit();
+    }
+  </script>
+</body>
+</html>
